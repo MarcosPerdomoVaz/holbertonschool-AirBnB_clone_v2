@@ -6,20 +6,20 @@ from sqlalchemy.orm import relationship
 
 
 class State(BaseModel, Base):
-    """ State class """
-    __tablename__ = 'states'
-    name = Column(String(128), nullable=False)
-    cities = relationship("City", back_populates="state",
-                          cascade="all, delete-orphan")
+    """ The state class, contains state name """
+    __tablename__ = "states"
 
-    @property
-    def cities(self):
+    name = Column(String(128), nullable=False)
+
+    if models.storage_type == 'db':
+        cities = relationship('City', backref='state', cascade='all, delete-orphan')
+    else:
+        @property
+        def cities(self):
         """getter attribute cities that returns the list of City instances
         with state_id equals to the current State.id"""
-        from models.city import City
-        from models import storage
-        list_cities = []
-        for city in storage.all(City).values():
-            if self.id == city.state_id:
-                list_cities.append(city)
-        return list_cities
+        city_list = []
+        for city in list(models.storage.all(City).values()):
+        if city.state_id == self.id:
+        city_list.append(city)
+        return city_list
