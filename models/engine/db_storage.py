@@ -5,65 +5,57 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from models.base_model import Base
 from os import getenv
 
-
 class DBStorage:
+    """DBStorage class for working with the MySQL database."""
     __engine = None
     __session = None
 
     def __init__(self):
-        """Initializes the database storage engine"""
-        self.__engine = create_engine('mysql+mysqldb://{}:{}@{}/{}'
-                                      .format(getenv('HBNB_MYSQL_USER'),
-                                              getenv('HBNB_MYSQL_PWD'),
-                                              getenv('HBNB_MYSQL_HOST'),
-                                              getenv('HBNB_MYSQL_DB')),
+        """Create a new instance of DBStorage."""
+        self.__engine = create_engine('mysql+mysqldb://{}:{}@{}/{}'.
+                                      format(getenv('HBNB_MYSQL_USER'),
+                                             getenv('HBNB_MYSQL_PWD'),
+                                             getenv('HBNB_MYSQL_HOST'),
+                                             getenv('HBNB_MYSQL_DB')),
                                       pool_pre_ping=True)
         if getenv('HBNB_ENV') == 'test':
             Base.metadata.drop_all(self.__engine)
 
     def all(self, cls=None):
-        """Query on the current database session (self.__session)
-        all objects depending of the class name (argument cls)
-        if cls=None, query all types of objects (User, State, City, Amenity, Place and Review)
-        """
-        obj_dict = {}
+        """Query all objects from the current database session."""
+        result = {}
         if cls:
-            for obj in self.__session.query(eval(cls)).all():
-                key = "{}.{}".format(obj.__class__.__name__, obj.id)
-                obj_dict[key] = obj
+            query_result = self.__session.query(cls).all()
         else:
-            for class_name in ["User", "State", "City", "Amenity", "Place", "Review"]:
-                for obj in self.__session.query(eval(class_name)).all():
-                    key = "{}.{}".format(obj.__class__.__name__, obj.id)
-                    obj_dict[key] = obj
-        return obj_dict
+            classes = [City, State]  # Add other classes as needed
+            query_result = []
+            for c in classes:
+                query_result += self.__session.query(c).all()
+        for obj in query_result:
+            key = '{}.{}'.format(type(obj).__name__, obj.id)
+            result[key] = obj
+        return result
 
     def new(self, obj):
-        """Add the object to the current database session (self.__session)"""
+        """Add the object to the current database session."""
         self.__session.add(obj)
 
     def save(self):
-        """Commit all changes of the current database session (self.__session)"""
+        """Commit all changes of the current database session."""
         self.__session.commit()
 
     def delete(self, obj=None):
-        """Delete from the current database session obj if not None"""
+        """Delete obj from the current database session if not None."""
         if obj:
             self.__session.delete(obj)
 
     def reload(self):
-        """Create all tables in the database (feature of SQLAlchemy)
-        (WARNING: all classes who inherit from Base must be imported before
-        calling Base.metadata.create_all(engine))"""
-        from models.base_model import BaseModel
-        from models.city import City
-        from models.user import User
-        from models.state import State
-        from models.amenity import Amenity
-        from models.place import Place
-        from models.review import Review
-
+        """Create all tables in the database and create the current database session."""
         Base.metadata.create_all(self.__engine)
         session_factory = sessionmaker(bind=self.__engine, expire_on_commit=False)
         Session = scoped_session(session_factory)
         self.__session = Session()
+
+    def close(self):
+        """Close the session."""
+        self.__session.remove()
